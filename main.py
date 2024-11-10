@@ -305,10 +305,15 @@ def check_fullscreen():  # 检查是否全屏
     user32.GetWindowRect(user32.GetDesktopWindow(), ctypes.byref(desktop_rect))
     # 获取当前窗口的矩形
     app_rect = RECT()
+    title_buffer = ctypes.create_unicode_buffer(256)
+    user32.GetWindowTextW(hwnd, title_buffer, 256)
+    if title_buffer.value == "Application Frame Host":
+        print('test')
+        return False
     user32.GetWindowRect(hwnd, ctypes.byref(app_rect))
     if hwnd == user32.GetDesktopWindow():
         return False
-    if user32.GetForegroundWindow() == 0:  # 聚焦桌面则判断否
+    if user32.GetForegroundWindow() == 0 or user32.GetForegroundWindow() == 65972:  # 聚焦桌面则判断否
         return False
     if hwnd != user32.GetDesktopWindow() and hwnd != user32.GetShellWindow():
         if (app_rect.left <= desktop_rect.left and
