@@ -6,7 +6,7 @@ from PyQt6 import uic
 from PyQt6.QtCore import Qt, QPropertyAnimation, QRect, QEasingCurve, QTimer, QPoint, \
     pyqtProperty
 from PyQt6.QtGui import QColor, QPainter, QBrush
-from PyQt6.QtWidgets import QWidget, QApplication, QLabel, QFrame, QGraphicsDropShadowEffect, QGraphicsBlurEffect
+from PyQt6.QtWidgets import QWidget, QApplication, QLabel, QFrame, QGraphicsBlurEffect
 from loguru import logger
 from qfluentwidgets import setThemeColor, Theme, setTheme
 
@@ -51,7 +51,7 @@ class tip_toast(QWidget):
 
         if state == 1:
             logger.info('上课铃声显示')
-            title_label.setText('活动开始')  # 修正文本，以适应不同场景
+            title_label.setText('上课')  # 修正文本，以适应不同场景
             subtitle_label.setText('当前课程')
             lesson.setText(lesson_name)  # 课程名
             playsound(attend_class)
@@ -64,8 +64,8 @@ class tip_toast(QWidget):
             playsound(finish_class)
             setThemeColor(f"#{conf.read_conf('Color', 'finish_class')}")
         elif state == 2:
-            logger.info('放学铃声显示')
-            title_label.setText('放学')
+            logger.info('Final下课铃声显示')
+            title_label.setText('下课')
             subtitle_label.setText('当前课程已结束')
             lesson.setText('')  # 课程名
             playsound(finish_class)

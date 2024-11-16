@@ -1,28 +1,28 @@
 import ctypes
+import datetime as dt
 import os
+import sys
 from shutil import copy
+
 import pygetwindow
 import requests
 from PyQt6 import uic
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QEasingCurve, QSharedMemory, QThread, pyqtSignal, \
+    QSize
+from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QProgressBar, QGraphicsBlurEffect, QPushButton, \
     QGraphicsDropShadowEffect, QSystemTrayIcon, QFrame, QGraphicsOpacityEffect
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QEasingCurve, QSharedMemory, QThread, pyqtSignal, \
-                        QSize
-from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter, QCursor
 from loguru import logger
-import sys
 from qfluentwidgets import Theme, setTheme, setThemeColor, SystemTrayMenu, Action, FluentIcon as FIcon, isDarkTheme, \
     Dialog, ProgressRing
-import datetime as dt
-import list
-import conf
-import subprocess
-import tip_toast
-from PyQt6.QtGui import QFontDatabase
 
-import menu
+import conf
 import exact_menu
+import list
+import menu
+import tip_toast
 import weather_db as db
 
 today = dt.date.today()
@@ -189,7 +189,7 @@ def get_countdown(toast=False):  # 重构好累aaaa
                     if c_time >= current_dt:
                         # 根据所在时间段使用不同标语
                         if item_name.startswith('a'):
-                            return_text.append('当前活动结束还有')
+                            return_text.append('本节课时长还有')
                         else:
                             return_text.append('课间时长还有')
                         # 返回倒计时、进度条
@@ -201,14 +201,14 @@ def get_countdown(toast=False):  # 重构好累aaaa
                         return_text.append(int(100 - seconds / (int(item_time) * 60) * 100))
                         got_return_data = True
             if not return_text:
-                return_text = ['目前课程已结束', f'00:00', 100]
+                return_text = ['等待下一时间段', f'00:00', 100]
         else:
             if f'a{part}1' in timeline_data:
                 time_diff = c_time - current_dt
                 minute, sec = divmod(time_diff.seconds, 60)
                 return_text = ['距离上课还有', f'{minute:02d}:{sec:02d}', 100]
             else:
-                return_text = ['目前课程已结束', f'00:00', 100]
+                return_text = ['等待下一时间段', f'00:00', 100]
         return return_text
 
 
@@ -243,7 +243,7 @@ def get_next_lessons():
 
 def get_next_lessons_text():
     if not next_lessons:
-        cache_text = '当前暂无课程'
+        cache_text = '谁知道呢'
     else:
         cache_text = ''
         if len(next_lessons) >= 5:
@@ -268,7 +268,7 @@ def get_next_lessons_text():
 def get_current_lesson_name():
     global current_lesson_name, current_state
     current_dt = dt.datetime.combine(today, dt.datetime.strptime(current_time, '%H:%M:%S').time())  # 当前时间
-    current_lesson_name = '暂无课程'
+    current_lesson_name = '还不清楚'
     current_state = 0
 
     if parts_start_time:
@@ -395,7 +395,7 @@ class ExMenuThread(QThread):
         self.finished.emit()
 
 
-class weatherReportThread(QThread):  # 获取最新天气信息
+class WeatherReportThread(QThread):  # 获取最新天气信息
     weather_signal = pyqtSignal(dict)
 
     def __init__(self):
@@ -908,7 +908,7 @@ class DesktopWidget(QWidget):  # 主要小组件
 
     def get_weather_data(self):
         logger.info('获取天气数据')
-        self.weather_thread = weatherReportThread()
+        self.weather_thread = WeatherReportThread()
         self.weather_thread.weather_signal.connect(self.update_weather_data)
         self.weather_thread.start()
 

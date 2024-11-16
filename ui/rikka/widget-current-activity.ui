@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>360</width>
-    <height>125</height>
+       <height>124</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -38,7 +38,6 @@
     <font>
      <family>Microsoft YaHei UI</family>
      <pointsize>22</pointsize>
-     <weight>75</weight>
      <bold>true</bold>
     </font>
    </property>
@@ -52,7 +51,8 @@ font-weight: bold;</string>
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../../../../../img/it.svg</normaloff>../../../../../img/it.svg</iconset>
+        <normaloff>../../../../img/it.svg</normaloff>../../../../img/it.svg
+    </iconset>
    </property>
    <property name="iconSize">
     <size>
@@ -91,7 +91,6 @@ border-radius:20px</string>
     <font>
      <family>Microsoft YaHei UI</family>
      <pointsize>14</pointsize>
-     <weight>75</weight>
      <bold>true</bold>
     </font>
    </property>
@@ -129,7 +128,7 @@ border-radius: 8px</string>
   <widget class="QLabel" name="img">
    <property name="geometry">
     <rect>
-     <x>30</x>
+        <x>16</x>
      <y>10</y>
      <width>91</width>
      <height>91</height>
