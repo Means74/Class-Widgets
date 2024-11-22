@@ -1,28 +1,28 @@
 import ctypes
+import datetime as dt
 import os
+import sys
 from shutil import copy
+
 import pygetwindow
 import requests
 from PyQt6 import uic
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QEasingCurve, QSharedMemory, QThread, pyqtSignal, \
+    QSize
+from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QProgressBar, QGraphicsBlurEffect, QPushButton, \
     QGraphicsDropShadowEffect, QSystemTrayIcon, QFrame, QGraphicsOpacityEffect
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QEasingCurve, QSharedMemory, QThread, pyqtSignal, \
-    QSize
-from PyQt6.QtGui import QColor, QIcon, QPixmap, QPainter, QCursor
 from loguru import logger
-import sys
 from qfluentwidgets import Theme, setTheme, setThemeColor, SystemTrayMenu, Action, FluentIcon as FIcon, isDarkTheme, \
     Dialog, ProgressRing
-import datetime as dt
-import list
-import conf
-import subprocess
-import tip_toast
-from PyQt6.QtGui import QFontDatabase
 
-import menu
+import conf
 import exact_menu
+import list
+import menu
+import tip_toast
 import weather_db as db
 
 today = dt.date.today()
@@ -241,7 +241,7 @@ def get_next_lessons():
 
 def get_next_lessons_text():
     if not next_lessons:
-        cache_text = '当前暂无课程'
+        cache_text = '现在没课!'
     else:
         cache_text = ''
         if len(next_lessons) >= 5:
@@ -266,7 +266,7 @@ def get_next_lessons_text():
 def get_current_lesson_name():
     global current_lesson_name, current_state
     current_dt = dt.datetime.combine(today, dt.datetime.strptime(current_time, '%H:%M:%S').time())  # 当前时间
-    current_lesson_name = '暂无课程'
+    current_lesson_name = '还没上课'
     current_state = 0
 
     if parts_start_time:
