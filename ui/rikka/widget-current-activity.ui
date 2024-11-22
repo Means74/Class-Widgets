@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>当前活动</string>
+      <string>当前</string>
   </property>
   <widget class="QPushButton" name="subject">
    <property name="geometry">
@@ -99,7 +99,7 @@ border-radius:20px</string>
 font-weight: bold;</string>
    </property>
    <property name="text">
-    <string>当前活动</string>
+       <string>当前</string>
    </property>
    <property name="textFormat">
     <enum>Qt::PlainText</enum>
