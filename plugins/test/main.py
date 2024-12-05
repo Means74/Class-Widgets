@@ -1,10 +1,10 @@
-"""
+'''
     这是一个示例插件
-"""
-from loguru import logger
+'''
 from datetime import datetime
 
-from PyQt5.QtWidgets import QHBoxLayout
+from PyQt6.QtWidgets import QHBoxLayout
+from loguru import logger
 from qfluentwidgets import ImageLabel
 
 # 自定义小组件

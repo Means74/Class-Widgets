@@ -2,10 +2,10 @@ import datetime as dt
 import sys
 from shutil import copy
 
-from PyQt5 import uic
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication
+from PyQt6 import uic
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication
 from loguru import logger
 from qfluentwidgets import FluentWindow, FluentIcon as fIcon, ComboBox, \
     PrimaryPushButton, Flyout, FlyoutAnimationType, InfoBarIcon, ListWidget, LineEdit, ToolButton, HyperlinkButton
@@ -152,6 +152,7 @@ class ExactMenu(FluentWindow):
         self.resize(width, height)
 
         self.setWindowTitle('Class Widgets - 更多功能')
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowIcon(QIcon('img/favicon-exmenu.ico'))
 
         self.addSubInterface(self.interface, fIcon.INFO, '更多设置')
