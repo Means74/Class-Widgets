@@ -1,4 +1,5 @@
 import datetime as dt
+import importlib
 import os
 import sys
 from copy import deepcopy
@@ -28,6 +29,12 @@ import list
 import tip_toast
 import weather_db
 import weather_db as wd
+
+# 适配高DPI缩放
+QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
 today = dt.date.today()
 
@@ -141,9 +148,31 @@ class licenseDialog(MessageBoxBase):  # 显示软件许可协议
         self.widget.setMinimumHeight(500)
 
 
+class PluginSettingsDialog(MessageBoxBase):  # 插件设置对话框
+    def __init__(self, plugin_dir=None, parent=None):
+        super().__init__(parent)
+        self.plugin_dir = plugin_dir
+        self.parent = parent
+        self.init_ui()
+
+    def init_ui(self):
+        # 加载已定义的UI
+        self.plugin_widget = self.parent.plugins_settings[self.plugin_dir]
+        self.viewLayout.addWidget(self.plugin_widget)
+        self.viewLayout.setContentsMargins(0, 0, 0, 0)
+
+        self.cancelButton.hide()
+        self.buttonLayout.insertStretch(0, 1)
+
+        self.widget.setMinimumWidth(875)
+        self.widget.setMinimumHeight(625)
+
+
 class PluginCard(CardWidget):  # 插件卡片
     def __init__(
-            self, icon, title='Unknown', content='Unknown', version='1.0.0', plugin_dir='', author=None, parent=None):
+            self, icon, title='Unknown', content='Unknown', version='1.0.0', plugin_dir='', author=None, parent=None,
+            settings=None
+    ):
         super().__init__(parent)
         icon_radius = 5
         self.plugin_dir = plugin_dir
@@ -160,8 +189,8 @@ class PluginCard(CardWidget):  # 插件卡片
         self.moreMenu = RoundMenu(parent=self.moreButton)
 
         self.hBoxLayout = QHBoxLayout(self)
-        self.hBoxLayout_Title = QHBoxLayout()
-        self.vBoxLayout = QVBoxLayout()
+        self.hBoxLayout_Title = QHBoxLayout(self)
+        self.vBoxLayout = QVBoxLayout(self)
 
         self.moreMenu.addActions([
             Action(
@@ -173,6 +202,9 @@ class PluginCard(CardWidget):  # 插件卡片
                 triggered=self.remove_plugin
             )
         ])
+        if settings:
+            self.moreMenu.addSeparator()
+            self.moreMenu.addAction(Action(fIcon.SETTING, f'“{title}”插件设置', triggered=self.show_settings))
 
         if plugin_dir in enabled_plugins['enabled_plugins']:  # 插件是否启用
             self.enableButton.setChecked(True)
@@ -218,6 +250,10 @@ class PluginCard(CardWidget):  # 插件卡片
             enabled_plugins['enabled_plugins'].remove(self.plugin_dir)
             conf.save_plugin_config(enabled_plugins)
 
+    def show_settings(self):
+        w = PluginSettingsDialog(self.plugin_dir, self.parent)
+        w.exec()
+
     def remove_plugin(self):
         alert = MessageBox(f"您确定要删除插件“{self.title}”吗？", "删除此插件后，将无法恢复。", self.parent)
         alert.yesButton.setText('永久删除')
@@ -258,32 +294,33 @@ class PluginCard(CardWidget):  # 插件卡片
                 logger.error(f'删除插件“{self.title}”时发生错误：{e}')
 
 
-class desktop_widget(FluentWindow):
+class SettingsMenu(FluentWindow):
     def __init__(self):
         super().__init__()
         # 设置窗口无边框和透明背景
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.plugins_settings = {}
         try:
             # 创建子页面
-            self.spInterface = uic.loadUi('menu-preview.ui')
+            self.spInterface = uic.loadUi('menu-preview.ui')  # 预览
             self.spInterface.setObjectName("spInterface")
             self.teInterface = uic.loadUi('menu-timeline_edit.ui')  # 时间线编辑
             self.teInterface.setObjectName("teInterface")
             self.seInterface = uic.loadUi('menu-schedule_edit.ui')  # 课程表编辑
             self.seInterface.setObjectName("seInterface")
-            self.adInterface = uic.loadUi('menu-advance.ui')
+            self.adInterface = uic.loadUi('menu-advance.ui')  # 高级选项
             self.adInterface.setObjectName("adInterface")
-            self.ifInterface = uic.loadUi('menu-about.ui')
+            self.ifInterface = uic.loadUi('menu-about.ui')  # 关于
             self.ifInterface.setObjectName("ifInterface")
-            self.ctInterface = uic.loadUi('menu-custom.ui')
+            self.ctInterface = uic.loadUi('menu-custom.ui')  # 自定义
             self.ctInterface.setObjectName("ctInterface")
-            self.cfInterface = uic.loadUi('menu-configs.ui')
+            self.cfInterface = uic.loadUi('menu-configs.ui')  # 配置文件
             self.cfInterface.setObjectName("cfInterface")
-            self.sdInterface = uic.loadUi('menu-sound.ui')
+            self.sdInterface = uic.loadUi('menu-sound.ui')  # 通知
             self.sdInterface.setObjectName("sdInterface")
-            self.hdInterface = uic.loadUi('menu-help.ui')
+            self.hdInterface = uic.loadUi('menu-help.ui')  # 帮助
             self.hdInterface.setObjectName("hdInterface")
-            self.plInterface = uic.loadUi('menu-plugin_mgr.ui')
+            self.plInterface = uic.loadUi('menu-plugin_mgr.ui')  # 插件
             self.plInterface.setObjectName("plInterface")
 
             self.init_nav()
@@ -315,9 +352,19 @@ class desktop_widget(FluentWindow):
         plugin_dict = (conf.load_plugins())  # 加载插件信息
 
         plugin_card_layout = self.findChild(QVBoxLayout, 'plugin_card_layout')
-        open_plugin_folder = self.findChild(HyperlinkLabel, 'open_plugin_folder')
+        open_plugin_folder = self.findChild(PushButton, 'open_plugin_folder')
         open_plugin_folder.clicked.connect(lambda: os.startfile(os.path.join(os.getcwd(), conf.PLUGINS_DIR)))  # 打开插件目录
         for plugin in plugin_dict:
+            try:
+                module = importlib.import_module(f'{conf.PLUGINS_DIR}.{plugin}')
+                if hasattr(module, 'Settings'):
+                    plugin_class = getattr(module, "Settings")  # 获取 Plugin 类
+                    # 实例化插件
+                    self.plugins_settings[plugin] = plugin_class(f'{conf.PLUGINS_DIR}/{plugin}')
+                logger.success(f"加载插件成功：{plugin}")
+            except Exception as e:
+                logger.error(f"加载插件失败：{e}")
+
             if (Path(conf.PLUGINS_DIR) / plugin / 'icon.png').exists():  # 若插件目录存在icon.png
                 icon_path = f'plugins/{plugin}/icon.png'
             else:
@@ -329,6 +376,7 @@ class desktop_widget(FluentWindow):
                 author=plugin_dict[plugin]['author'],
                 plugin_dir=plugin,
                 content=plugin_dict[plugin]['description'],
+                settings=plugin_dict[plugin]['settings'],
                 parent=self
             )
             plugin_card_layout.addWidget(card)
@@ -417,6 +465,7 @@ class desktop_widget(FluentWindow):
             except:
                 logger.error(f'获取组件名称时发生错误：{sys.exc_info()[0]}')
         widgets_list_widgets.addItems(widgets_list)
+        widgets_list_widgets.sizePolicy().setVerticalPolicy(QSizePolicy.Policy.MinimumExpanding)
 
         save_config_button = self.findChild(PrimaryPushButton, 'save_config')
         save_config_button.clicked.connect(self.ct_save_widget_config)
@@ -1670,7 +1719,7 @@ def sp_get_class_num():  # 获取当前周课程数（未完成）
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    settings = desktop_widget()
+    settings = SettingsMenu()
     settings.show()
     settings.setMicaEffectEnabled(True)
     sys.exit(app.exec())

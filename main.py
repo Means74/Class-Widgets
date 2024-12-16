@@ -27,7 +27,18 @@ import exact_menu
 import list
 import menu
 import tip_toast
+from PyQt6.QtGui import QFontDatabase
+
+from menu import SettingsMenu
+from exact_menu import ExactMenu
+from plugin_plaza import PluginPlaza
 import weather_db as db
+
+# 适配高DPI缩放
+QApplication.setHighDpiScaleFactorRoundingPolicy(
+    Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
 today = dt.date.today()
 filename = conf.read_conf('General', 'schedule')
@@ -43,6 +54,7 @@ current_week = dt.datetime.now().weekday()
 current_lessons = {}
 loaded_data = {}
 notification = tip_toast
+update_timer = QTimer()
 
 timeline_data = {}
 next_lessons = []
@@ -58,6 +70,7 @@ first_start = True
 
 settings = None
 ex_menu = None
+plugin_plaza = None
 
 if conf.read_conf('Other', 'do_not_log') != '1':
     logger.add("log/ClassWidgets_main_{time}.log", rotation="1 MB", encoding="utf-8", retention="1 minute")
@@ -111,16 +124,18 @@ def get_part():
         c_time = parts_start_time[i] + dt.timedelta(seconds=time_offset)
         if any(f'a{int(order[i])}' in key or f'f{int(order[i])}' in key for key in timeline_data.keys()):
             return c_time, int(order[i])
+        else:
+            return c_time, 0  # 默认
 
     current_dt = dt.datetime.now()
     for i in range(len(parts_start_time)):  # 遍历每个Part
         if i == len(parts_start_time) - 1:  # 最后一个Part
             if parts_start_time[i] - dt.timedelta(minutes=30) <= current_dt or current_dt > parts_start_time[i]:
-                return_data()
+                return return_data()
         else:
             if (parts_start_time[i] - dt.timedelta(minutes=30) <= current_dt < parts_start_time[i + 1]
                     - dt.timedelta(minutes=30)):
-                return_data()
+                return return_data()
     return parts_start_time[0] + dt.timedelta(seconds=time_offset), 0
 
 
@@ -505,8 +520,12 @@ class WidgetsManager:
         init()
 
     def update_widgets(self):
+        c = 0
         for widget in self.widgets:
+            if c == 0:
+                get_countdown(True)
             widget.update_data(path=widget.path)
+            c += 1
         p_loader.update_plugins()
         if notification.pushed_notification:
             notification.pushed_notification = False
@@ -534,7 +553,7 @@ class openProgressDialog(QWidget):
         self.screen_height = screen_geometry.height()
         self.init_ui()
         self.init_font()
-        self.move((self.screen_width - self.width())//2, self.screen_height - self.height() - 100)
+        self.move((self.screen_width - self.width()) // 2, self.screen_height - self.height() - 100)
 
         self.action_name = self.findChild(QLabel, 'action_name')
         self.action_name.setText(action_title)
@@ -597,7 +616,8 @@ class openProgressDialog(QWidget):
                 """)
 
     def intro_animation(self):  # 弹出动画
-        label_width = self.action_name.sizeHint().width() + 180
+        self.setMinimumWidth(300)
+        label_width = self.action_name.sizeHint().width() - 120
         self.animation = QPropertyAnimation(self, b'windowOpacity')
         self.animation.setDuration(400)
         self.animation.setStartValue(0)
@@ -607,10 +627,13 @@ class openProgressDialog(QWidget):
         self.animation_rect = QPropertyAnimation(self, b'geometry')
         self.animation_rect.setDuration(450)
         self.animation_rect.setStartValue(
-            QRect(self.x(), self.screen_height - 150, self.width()//2, self.height())
+            QRect(self.x(), self.screen_height, self.width(), self.height())
         )
         self.animation_rect.setEndValue(
-            self.geometry().adjusted(-(label_width - self.geometry().width()), 0, label_width - self.geometry().width(), 0)
+            QRect((self.screen_width - (self.width()+label_width)) // 2,
+                  self.screen_height - 250,
+                  self.width()+label_width,
+                  self.height())
         )
         self.animation_rect.setEasingCurve(QEasingCurve.Type.InOutCirc)
 
@@ -884,21 +907,12 @@ class DesktopWidget(QWidget):  # 主要小组件
             self.resize(self.w, self.h)
 
         self.update_data('')
-        self.timer = QTimer(self)
-        self.update_time()
 
     def update_widget_for_plugin(self, context=['title', 'desc']):
         title = self.findChild(QLabel, 'title')
         desc = self.findChild(QLabel, 'content')
         title.setText(context[0])
         desc.setText(context[1])
-
-    def update_time(self):
-        if self.path == 'widget-current-activity.ui':
-            mgr.update_widgets()
-            next_second = (dt.datetime.now() + dt.timedelta(seconds=1)).replace(microsecond=0)
-            delay = (next_second - dt.datetime.now()).total_seconds() * 1000  # 转换为毫秒
-            self.timer.singleShot(int(delay), self.update_time)
 
     def init_ui(self, path):
         if conf.read_conf('General', 'color_mode') == '2':
@@ -978,6 +992,7 @@ class DesktopWidget(QWidget):  # 主要小组件
         ])
         self.tray_menu.addSeparator()
         self.tray_menu.addActions([
+            Action(FIcon.SHOPPING_CART, '插件广场', triggered=self.open_plaza),
             Action(FIcon.DEVELOPER_TOOLS, '额外选项', triggered=self.open_exact_menu),
             Action(FIcon.SETTING, '设置', triggered=self.open_settings)
         ])
@@ -1033,10 +1048,7 @@ class DesktopWidget(QWidget):  # 主要小组件
         if not self.animation:
             self.setWindowOpacity(int(conf.read_conf('General', 'opacity')) / 100)  # 设置窗口透明度
 
-        if path != 'widget-current-activity.ui':  # 不是当前活动组件
-            cd_list = get_countdown()
-        else:
-            cd_list = get_countdown(toast=True)
+        cd_list = get_countdown()
 
         if path == 'widget-time.ui':  # 日期显示
             self.date_text.setText(f'{today.year} 年 {today.month} 月')
@@ -1078,6 +1090,7 @@ class DesktopWidget(QWidget):  # 主要小组件
         elif path == 'widget-countdown-custom.ui':  # 自定义倒计时
             self.custom_title.setText(f'距离 {conf.read_conf("Date", "cd_text_custom")} 还有')
             self.custom_countdown.setText(conf.get_custom_countdown())
+        self.update()
 
     def get_weather_data(self):
         logger.info('获取天气数据')
@@ -1126,29 +1139,44 @@ class DesktopWidget(QWidget):  # 主要小组件
         global settings
         try:
             if settings is None or not settings.isVisible():
-                settings = menu.desktop_widget()
+                settings = SettingsMenu()
                 settings.show()
                 logger.info('打开“设置”')
             else:
                 settings.raise_()
                 settings.activateWindow()
         except Exception as e:
-            settings = menu.desktop_widget()
+            settings = SettingsMenu()
             settings.show()
             logger.info('打开“设置”')
+
+    def open_plaza(self):
+        global plugin_plaza
+        try:
+            if plugin_plaza is None or not plugin_plaza.isVisible():
+                plugin_plaza = PluginPlaza()
+                plugin_plaza.show()
+                logger.info('打开“插件广场”')
+            else:
+                plugin_plaza.raise_()
+                plugin_plaza.activateWindow()
+        except Exception as e:
+            plugin_plaza = PluginPlaza()
+            plugin_plaza.show()
+            logger.info('打开“插件广场”')
 
     def open_exact_menu(self):
         global ex_menu
         try:
             if ex_menu is None or not ex_menu.isVisible():
-                ex_menu = exact_menu.ExactMenu()
+                ex_menu = ExactMenu()
                 ex_menu.show()
                 logger.info('打开“额外选项”')
             else:
                 ex_menu.raise_()
                 ex_menu.activateWindow()
         except Exception as e:
-            ex_menu = exact_menu.ExactMenu()
+            ex_menu = ExactMenu()
             ex_menu.show()
             logger.info('打开“额外选项”')
 
@@ -1238,7 +1266,6 @@ class DesktopWidget(QWidget):  # 主要小组件
         self.deleteLater()  # 销毁内存
         event.accept()
 
-
 def check_windows_maximize():  # 检查窗口是否最大化
     for window in pygetwindow.getAllWindows():
         if window.isMaximized:  # 最大化或全屏(修复
@@ -1260,7 +1287,11 @@ def show_window(path, pos, enable_tray=False):
 
 
 def init():
-    global theme, radius, mgr, screen_width, first_start, fw
+    global theme, radius, mgr, screen_width, first_start, fw, update_timer
+    update_timer.timeout.connect(update_time)
+    update_timer.setInterval(1000)
+    update_time()
+
     mgr = WidgetsManager()
     fw = FloatingWidget()
 
@@ -1313,6 +1344,13 @@ def init():
     p_loader.run_plugins()  # 运行插件
 
     first_start = False
+
+
+def update_time():
+    mgr.update_widgets()
+    next_second = (dt.datetime.now() + dt.timedelta(seconds=1)).replace(microsecond=0)
+    delay = (next_second - dt.datetime.now()).total_seconds() * 1000  # 转换为毫秒
+    update_timer.singleShot(int(delay), update_time)
 
 
 if __name__ == '__main__':
